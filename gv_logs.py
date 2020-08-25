@@ -1,6 +1,8 @@
 """Generate a CSV of logs from a Google Voice Takeout."""
 import argparse
 import csv
+import functools
+import hashlib
 import operator
 import re
 import sys
@@ -13,16 +15,17 @@ CALL_PATTERN = (
     r"\.html)"
 )
 
-CALL_FIELDS = ["timestamp", "type", "contact"]
+CALL_FIELDS = ["timestamp", "type", "contact_id", "contact_name"]
 
 CONTACT_STATS = {
     "total": 0,
     "missing": 0,
     "numbers": 0,
     "names": 0,
-    "unique_numbers": set(),
-    "unique_names": set(),
 }
+
+CALL_NUMBERS = set()
+CALL_NAMES = set()
 
 
 def main():
@@ -45,8 +48,8 @@ def main():
         CONTACT_STATS[k] for k in ["missing", "numbers", "names"]
     )
     print(f"calls: {CONTACT_STATS['total']}", file=sys.stderr)
-    print(f"numbers: {len(CONTACT_STATS['unique_numbers'])}", file=sys.stderr)
-    print(f"names: {len(CONTACT_STATS['unique_names'])}", file=sys.stderr)
+    print(f"numbers: {len(CALL_NUMBERS)}", file=sys.stderr)
+    print(f"names: {len(CALL_NAMES)}", file=sys.stderr)
 
 
 def match_calls(filenames):
@@ -62,21 +65,39 @@ def process_call(call):
     CONTACT_STATS["total"] += 1
 
     contact = call["contact"]
-    if not contact:
-        CONTACT_STATS["missing"] += 1
-    elif re.search(r"\d{10}", contact):
-        CONTACT_STATS["numbers"] += 1
-        CONTACT_STATS["unique_numbers"].add(contact)
-    else:
-        CONTACT_STATS["names"] += 1
-        CONTACT_STATS["unique_names"].add(contact)
+    is_number = re.search(r"\d{10}", contact) is not None
 
+    if is_number:
+        CONTACT_STATS["numbers"] += 1
+        CALL_NUMBERS.add(contact)
+    elif contact:
+        CONTACT_STATS["names"] += 1
+        CALL_NAMES.add(contact)
+    else:
+        CONTACT_STATS["missing"] += 1
+
+    # TODO: Get duration from contents of `call["filename"]`
     return {
-        **call,
         "timestamp": normalize_timestamp(call["timestamp"]),
+        "type": call["type"],
+        "contact_id": anonymize(contact),
+        "contact_name": contact if not is_number else None,
     }
-    # TODO: Anonymize `contact`?
-    # TODO: Get duration from contents of `filename`
+
+
+@functools.lru_cache()
+def anonymize(value):
+    # Using a small digest_size for readability
+    # In initial testing, didn't get collisions until digest_size == 2
+    digest = hashlib.blake2b(value.encode("utf-8"), digest_size=5).hexdigest()
+
+    current_value = ANONYMIZED_VALUES.setdefault(digest, value)
+    assert current_value == value, f"Digest {digest} already used"
+
+    return digest
+
+
+ANONYMIZED_VALUES = {}
 
 
 def normalize_timestamp(timestamp):
@@ -89,7 +110,7 @@ def normalize_timestamp(timestamp):
 
 
 def write_csv(calls, csvfile):
-    writer = csv.DictWriter(csvfile, fieldnames=CALL_FIELDS, extrasaction="ignore")
+    writer = csv.DictWriter(csvfile, fieldnames=CALL_FIELDS)
     writer.writeheader()
     for call in calls:
         writer.writerow(call)
