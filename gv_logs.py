@@ -15,6 +15,15 @@ CALL_PATTERN = (
 
 CALL_FIELDS = ["timestamp", "type", "contact"]
 
+CONTACT_STATS = {
+    "total": 0,
+    "missing": 0,
+    "numbers": 0,
+    "names": 0,
+    "unique_numbers": set(),
+    "unique_names": set(),
+}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -32,6 +41,13 @@ def main():
     # TODO: Add option for writing to a file?
     write_csv(calls, sys.stdout)
 
+    assert CONTACT_STATS["total"] == sum(
+        CONTACT_STATS[k] for k in ["missing", "numbers", "names"]
+    )
+    print(f"calls: {CONTACT_STATS['total']}", file=sys.stderr)
+    print(f"numbers: {len(CONTACT_STATS['unique_numbers'])}", file=sys.stderr)
+    print(f"names: {len(CONTACT_STATS['unique_names'])}", file=sys.stderr)
+
 
 def match_calls(filenames):
     for filename in filenames:
@@ -43,6 +59,18 @@ def match_calls(filenames):
 
 
 def process_call(call):
+    CONTACT_STATS["total"] += 1
+
+    contact = call["contact"]
+    if not contact:
+        CONTACT_STATS["missing"] += 1
+    elif re.search(r"\d{10}", contact):
+        CONTACT_STATS["numbers"] += 1
+        CONTACT_STATS["unique_numbers"].add(contact)
+    else:
+        CONTACT_STATS["names"] += 1
+        CONTACT_STATS["unique_names"].add(contact)
+
     return {
         **call,
         "timestamp": normalize_timestamp(call["timestamp"]),
