@@ -8,7 +8,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 
 CALL_PATTERN = (
     r"Takeout/Voice/(?P<directory>Calls|Spam)/"
@@ -17,11 +17,14 @@ CALL_PATTERN = (
 
 CALL_FIELDS = [
     "timestamp",
+    "date",
+    "time",
     "type",
     "contact_id",
     "contact_name",
-    "duration",
-    "messages",
+    "call_duration",
+    "message_days",
+    "message_count",
 ]
 
 
@@ -51,7 +54,7 @@ def parse_takeout(path):
         calls = (
             {
                 **call,
-                "timestamp": parse_timestamp(call["timestamp"]),
+                "timestamp": format_timestamp(call["timestamp"]),
                 **parse_contact(call["contact"]),
                 **parse_file(call["filename"], takeout),
             }
@@ -115,13 +118,11 @@ def anonymize(value):
     return digest
 
 
-def parse_timestamp(timestamp):
+def format_timestamp(timestamp):
     # 2020-08-21T18_57_10Z => 2020-08-21T18:57:10-04:00
-    return (
-        datetime.strptime(timestamp.replace("Z", "UTC"), "%Y-%m-%dT%H_%M_%S%Z")
-        .astimezone()
-        .isoformat()
-    )
+    # Matching datetime.isoformat(). For details, see:
+    # https://docs.python.org/3/library/datetime.html#datetime.datetime.isoformat
+    return timestamp.replace("_", ":").replace("Z", "+00:00")
 
 
 def parse_file(filename, takeout):
@@ -138,19 +139,40 @@ def parse_file(filename, takeout):
         raise ValueError(f"Error parsing {filename}") from exc
 
     return {
-        "duration": parse_duration(xml),
+        "call_duration": get_duration(xml),
+        **format_datetime(get_published(xml)),
         **parse_messages(xml),
     }
 
 
-def parse_duration(xml):
+def get_duration(xml):
     # <abbr class="duration" title="PT2M23S">(00:02:23)</abbr>
     element = xml.find(".//*[@class='duration']")
     if element is None:
         return None
 
-    hours, minutes, seconds = (int(x) for x in element.text.strip("()").split(":"))
-    return timedelta(hours=hours, minutes=minutes, seconds=seconds)
+    return element.text.strip("()")
+
+
+def get_published(xml):
+    # <abbr class="published" title="2020-06-14T12:40:38.000-04:00">
+    #     Jun 14, 2020, 12:40:38 PM Eastern Time
+    # </abbr>
+    element = xml.find(".//*[@class='published']")
+    if element is None:
+        return None
+
+    return datetime.fromisoformat(element.get("title"))
+
+
+def format_datetime(dt):
+    if dt is None:
+        return {}
+
+    return {
+        "date": dt.strftime("%Y-%m-%d"),
+        "time": dt.strftime("%I:%M %p"),
+    }
 
 
 def parse_messages(xml):
@@ -167,21 +189,23 @@ def parse_messages(xml):
     if not messages:
         return {}
 
-    timestamps = [parse_dt(element) for element in messages]
+    first_dt = get_dt(messages[0])
+    last_dt = get_dt(messages[-1])
 
     return {
-        "messages": len(messages),
-        "duration": timestamps[-1] - timestamps[0],
+        **format_datetime(first_dt),
+        "message_days": (last_dt - first_dt).days,
+        "message_count": len(messages),
     }
 
 
-def parse_dt(xml):
+def get_dt(xml):
     # <abbr class="dt" title="2020-06-23T21:10:00.971-04:00">
     element = xml.find(".//*[@class='dt']")
     if element is None:
         return None
 
-    return datetime.fromisoformat(element.get("title")).replace(microsecond=0)
+    return datetime.fromisoformat(element.get("title"))
 
 
 def write_csv(calls, fieldnames, csvfile):
