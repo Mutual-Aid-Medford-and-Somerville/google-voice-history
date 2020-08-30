@@ -4,11 +4,13 @@ import csv
 import functools
 import hashlib
 import operator
+import os
 import re
 import sys
-import xml.etree.ElementTree as ET
 import zipfile
+from contextlib import contextmanager
 from datetime import datetime
+from xml.etree import ElementTree as ET
 
 CALL_PATTERN = (
     r"Takeout/Voice/(?P<directory>Calls|Spam)/"
@@ -28,6 +30,21 @@ CALL_FIELDS = [
 ]
 
 
+@contextmanager
+def pipeable():
+    """
+    Silence noisy errors from `python my_script.py | head`.
+
+    https://docs.python.org/3/library/signal.html#note-on-sigpipe
+    """
+    try:
+        yield
+    except BrokenPipeError:
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
+
+
+@pipeable()
 def main():
     # TODO: Add option for writing to a file?
     parser = argparse.ArgumentParser(description=__doc__)
@@ -37,6 +54,7 @@ def main():
     args = parser.parse_args()
 
     calls = parse_takeout(args.takeout_path)
+
     write_csv(calls, CALL_FIELDS, sys.stdout)
 
 
