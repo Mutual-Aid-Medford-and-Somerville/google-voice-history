@@ -246,10 +246,16 @@ def write_csv(
     fieldnames: List[str],
     csvfile: IO[str],
 ) -> None:
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction="ignore")
+    writer = csv.DictWriter(
+        csvfile,
+        fieldnames=fieldnames,
+        extrasaction="ignore",
+        # Workaround unwanted CRLf: https://stackoverflow.com/a/17725590/3188289
+        # Could maybe use os.linesep instead of "\n"?
+        lineterminator="\n",
+    )
     writer.writeheader()
-    for call in calls:
-        writer.writerow(call)
+    writer.writerows(calls)
 
 
 if __name__ == "__main__":
