@@ -1,4 +1,4 @@
-"""Generate a CSV of logs from a Google Voice Takeout."""
+"""Generate a CSV of call and message history from a Google Voice Takeout."""
 import argparse
 import csv
 import functools
