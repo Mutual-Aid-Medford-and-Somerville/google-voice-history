@@ -3,7 +3,8 @@ import os
 
 from invoke import task
 
-FILES = "src tests *.py"
+# TODO: Replace `tasks.py` with `glob("*.py")`
+FILES = "src tests tasks.py"
 
 os.environ["INVOKE_RUN_ECHO"] = "1"
 
