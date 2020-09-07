@@ -1,6 +1,7 @@
 # type: ignore
 """Tests for google_voice_history.py."""
 import pathlib
+import re
 import subprocess
 
 TESTS_PATH = pathlib.Path(__file__).parent.resolve()
@@ -10,7 +11,7 @@ SRC_PATH = (TESTS_PATH / ".." / "src").resolve()
 def run_script(*args):
     """Run the script and return the result with captured output."""
     return subprocess.run(
-        ["python", "-m", "google_voice_history", *args],
+        ["python", "google_voice_history.py", *args],
         cwd=SRC_PATH,
         capture_output=True,
         text=True,
@@ -30,8 +31,11 @@ def test_help_message():
     process = run_script("-h")
 
     assert process.returncode == 0
-    assert "Google Voice Takeout" in process.stdout
-    assert "PATH" in process.stdout
+    assert re.match(
+        r"^usage.+^Generate.+^  PATH.+^CSV columns",
+        process.stdout,
+        re.DOTALL | re.MULTILINE,
+    )
 
 
 def test_example():

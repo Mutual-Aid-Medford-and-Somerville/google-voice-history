@@ -1,4 +1,17 @@
-"""Generate a CSV of call and message history from a Google Voice Takeout."""
+"""
+Generate a CSV of call and message history from a Google Voice Takeout.
+
+CSV columns:
+  timestamp      The date & time of the log in UTC
+  date           The local date of the log
+  time           The local time of the log
+  type           The type of the log (Received, Placed, Missed, Voicemail, Text)
+  contact_id     A unique, anonymized value representing the contact's number or name
+  contact_name   The name of the contact
+  call_duration  The duration of calls in HH:MM:SS
+  message_days   The duration of a text message thread in days
+  message_count  The number of messages in a text message thread
+"""
 import argparse
 import csv
 import functools
@@ -53,11 +66,17 @@ def pipeable() -> Iterator[None]:
 
 @pipeable()
 def main() -> None:
-    # TODO: Add option for writing to a file?
-    parser = argparse.ArgumentParser(description=__doc__)
+    description, epilog = __doc__.strip().split("\n\n")
+    parser = argparse.ArgumentParser(
+        description=description,
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "takeout_path", help="File path of Google Voice Takeout", metavar="PATH"
     )
+    # TODO: Add option for writing to a file?
+    # TODO: Add option for excluding columns, defaulting to ["contact"]
     args = parser.parse_args()
 
     calls = parse_takeout(args.takeout_path)
