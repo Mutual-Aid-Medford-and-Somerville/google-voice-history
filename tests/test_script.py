@@ -38,7 +38,7 @@ def test_example():
     """Generate example CSV from example takeout."""
     process = run_script(TESTS_PATH / "takeout.zip")
 
-    with open(TESTS_PATH / "takeout.csv") as f:
+    with open(TESTS_PATH / "history.csv") as f:
         example_csv = f.read()
 
     assert process.returncode == 0
