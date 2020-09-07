@@ -11,7 +11,7 @@ SRC_PATH = (TESTS_PATH / ".." / "src").resolve()
 def run_script(*args):
     """Run the script and return the result with captured output."""
     return subprocess.run(
-        ["python", "google_voice_history.py", *args],
+        ["python", "google_voice_history.py", *[str(x) for x in args]],
         cwd=SRC_PATH,
         capture_output=True,
         text=True,
