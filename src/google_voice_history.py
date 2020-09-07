@@ -11,6 +11,9 @@ CSV columns:
   call_duration  The duration of calls in HH:MM:SS
   message_days   The duration of a text message thread in days
   message_count  The number of messages in a text message thread
+
+More details and instructions:
+  https://github.com/Mutual-Aid-Medford-and-Somerville/google-voice-history
 """
 import argparse
 import csv
@@ -66,7 +69,7 @@ def pipeable() -> Iterator[None]:
 
 @pipeable()
 def main() -> None:
-    description, epilog = __doc__.strip().split("\n\n")
+    description, epilog = __doc__.strip().split("\n\n", 1)
     parser = argparse.ArgumentParser(
         description=description,
         epilog=epilog,
