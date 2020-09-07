@@ -47,13 +47,11 @@ Set up your development environment:
 
 - [Fork and clone](https://help.github.com/en/articles/fork-a-repo) this repository
 
-- Set up a [virtual environment](https://docs.python.org/3/tutorial/venv.html):
+- Create and activate a [virtual environment](https://docs.python.org/3/tutorial/venv.html)
+
+- Install the packages required for development:
 
     ```
-    $ python3 -m venv venv
-
-    $ source venv/bin/activate
-
     $ python -m pip install -U setuptools pip wheel
 
     $ python -m pip install -r requirements.txt

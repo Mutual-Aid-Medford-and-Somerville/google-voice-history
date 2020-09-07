@@ -3,7 +3,8 @@ import os
 
 from invoke import task
 
-# TODO: Replace `tasks.py` with `glob("*.py")`
+# TODO: Replace `tasks.py` with results of `glob("*.py")`
+# Just `*.py` doesn't work on Windows
 FILES = "src tests tasks.py"
 
 os.environ["INVOKE_RUN_ECHO"] = "1"
