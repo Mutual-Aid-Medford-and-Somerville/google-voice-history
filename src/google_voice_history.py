@@ -27,7 +27,7 @@ import zipfile
 from contextlib import contextmanager
 from datetime import datetime
 from typing import IO, Any, Dict, Iterable, Iterator, List, Optional
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree
 
 CALL_PATTERN = (
     r"Takeout/Voice/(?P<directory>Calls|Spam)/"
@@ -194,13 +194,13 @@ def parse_file(filename: str, takeout: zipfile.ZipFile) -> CallDict:
     content = takeout.read(filename).decode("utf-8")
 
     try:
-        xml = ET.fromstring(
+        xml = ElementTree.fromstring(
             # HACK: Remove HTML tags and entities that cause XML parse errors
             # This is fine because we don't care about the content
             # Alternatively, use a proper HTML parser like lxml.html or pyquery
             content.replace("<br>", "").replace("&", ""),
         )
-    except ET.ParseError as exc:
+    except ElementTree.ParseError as exc:
         raise ValueError(f"Error parsing {filename}") from exc
 
     return {
@@ -210,7 +210,7 @@ def parse_file(filename: str, takeout: zipfile.ZipFile) -> CallDict:
     }
 
 
-def parse_call_duration(xml: ET.Element) -> Optional[str]:
+def parse_call_duration(xml: ElementTree.Element) -> Optional[str]:
     """
     Parse a call's duration from HTML.
 
@@ -223,7 +223,7 @@ def parse_call_duration(xml: ET.Element) -> Optional[str]:
     return element.text.strip("()")
 
 
-def parse_call_datetime(xml: ET.Element) -> Optional[datetime]:
+def parse_call_datetime(xml: ElementTree.Element) -> Optional[datetime]:
     """
     Parse a call's timestamp from HTML.
 
@@ -249,7 +249,7 @@ def format_datetime(dt: Optional[datetime]) -> CallDict:
     }
 
 
-def parse_messages(xml: ET.Element) -> CallDict:
+def parse_messages(xml: ElementTree.Element) -> CallDict:
     """
     Parse message metadata from HTML.
 
@@ -280,7 +280,7 @@ def parse_messages(xml: ET.Element) -> CallDict:
     }
 
 
-def parse_message_datetime(xml: ET.Element) -> Optional[datetime]:
+def parse_message_datetime(xml: ElementTree.Element) -> Optional[datetime]:
     """
     Parse a message's timestamp from HTML.
 
