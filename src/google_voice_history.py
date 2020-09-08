@@ -69,6 +69,7 @@ def pipeable() -> Iterator[None]:
 
 @pipeable()
 def main() -> None:
+    """Process command line arguments, parse the Takeout, and write a CSV."""
     description, epilog = __doc__.strip().split("\n\n", 1)
     parser = argparse.ArgumentParser(
         description=description,
@@ -76,7 +77,9 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "takeout_path", help="File path of Google Voice Takeout", metavar="PATH"
+        "takeout_path",
+        help="File path of Google Voice Takeout",
+        metavar="PATH",
     )
     # TODO: Add option for writing to a file?
     # TODO: Add option for excluding columns, defaulting to ["contact"]
@@ -96,6 +99,7 @@ CONTACT_STATS = {
 
 
 def parse_takeout(path: str) -> List[CallDict]:
+    """Parse all call metadata from a Google Takeout ZIP file."""
     with zipfile.ZipFile(path) as takeout:
         calls = match_calls(takeout.namelist())
         calls = parse_calls(calls, takeout)
@@ -112,6 +116,7 @@ def parse_takeout(path: str) -> List[CallDict]:
 
 
 def match_calls(filenames: List[str]) -> Iterable[CallDict]:
+    """Parse some call metadata from call history filenames."""
     for filename in filenames:
         match = re.match(CALL_PATTERN, filename)
         if not match:
@@ -127,16 +132,29 @@ def parse_calls(
     calls: Iterable[CallDict],
     takeout: zipfile.ZipFile,
 ) -> Iterable[CallDict]:
+    """Parse more call metadata from call history HTML files."""
     for call in calls:
         yield {
             **call,
             "timestamp": format_timestamp(call["timestamp"]),
-            **parse_contact(call["contact"]),
+            **format_contact(call["contact"]),
             **parse_file(call["filename"], takeout),
         }
 
 
-def parse_contact(contact: str) -> CallDict:
+def format_timestamp(timestamp: str) -> str:
+    """
+    Convert a non-standard timestamp to ISO8601.
+
+    2020-08-21T18_57_10Z => 2020-08-21T18:57:10-04:00
+    Matching datetime.isoformat(). For details, see:
+    https://docs.python.org/3/library/datetime.html#datetime.datetime.isoformat
+    """
+    return timestamp.replace("_", ":").replace("Z", "+00:00")
+
+
+def format_contact(contact: str) -> CallDict:
+    """Convert a contact's name or number to a dictionary with a unique ID."""
     CONTACT_STATS["total"] += 1
 
     is_number = re.search(r"\d{10}", contact) is not None
@@ -159,6 +177,7 @@ ANONYMIZED_VALUES: Dict[str, str] = {}
 
 @functools.lru_cache()
 def anonymize(value: str) -> str:
+    """Generate a unique ID for a value."""
     # Using a small digest_size for readability
     # In initial testing, didn't get collisions until digest_size == 2
     digest = hashlib.blake2b(value.encode("utf-8"), digest_size=5).hexdigest()
@@ -170,14 +189,8 @@ def anonymize(value: str) -> str:
     return digest
 
 
-def format_timestamp(timestamp: str) -> str:
-    # 2020-08-21T18_57_10Z => 2020-08-21T18:57:10-04:00
-    # Matching datetime.isoformat(). For details, see:
-    # https://docs.python.org/3/library/datetime.html#datetime.datetime.isoformat
-    return timestamp.replace("_", ":").replace("Z", "+00:00")
-
-
 def parse_file(filename: str, takeout: zipfile.ZipFile) -> CallDict:
+    """Parse a call's metadata from an HTML file."""
     content = takeout.read(filename).decode("utf-8")
 
     try:
@@ -191,14 +204,18 @@ def parse_file(filename: str, takeout: zipfile.ZipFile) -> CallDict:
         raise ValueError(f"Error parsing {filename}") from exc
 
     return {
-        "call_duration": get_duration(xml),
-        **format_datetime(get_published(xml)),
+        "call_duration": parse_call_duration(xml),
+        **format_datetime(parse_call_datetime(xml)),
         **parse_messages(xml),
     }
 
 
-def get_duration(xml: ET.Element) -> Optional[str]:
-    # <abbr class="duration" title="PT2M23S">(00:02:23)</abbr>
+def parse_call_duration(xml: ET.Element) -> Optional[str]:
+    """
+    Parse a call's duration from HTML.
+
+    <abbr class="duration" title="PT2M23S">(00:02:23)</abbr>
+    """
     element = xml.find(".//*[@class='duration']")
     if element is None or element.text is None:
         return None
@@ -206,10 +223,14 @@ def get_duration(xml: ET.Element) -> Optional[str]:
     return element.text.strip("()")
 
 
-def get_published(xml: ET.Element) -> Optional[datetime]:
-    # <abbr class="published" title="2020-06-14T12:40:38.000-04:00">
-    #     Jun 14, 2020, 12:40:38 PM Eastern Time
-    # </abbr>
+def parse_call_datetime(xml: ET.Element) -> Optional[datetime]:
+    """
+    Parse a call's timestamp from HTML.
+
+    <abbr class="published" title="2020-06-14T12:40:38.000-04:00">
+        Jun 14, 2020, 12:40:38 PM Eastern Time
+    </abbr>
+    """
     element = xml.find(".//*[@class='published']")
     if element is None:
         return None
@@ -218,6 +239,7 @@ def get_published(xml: ET.Element) -> Optional[datetime]:
 
 
 def format_datetime(dt: Optional[datetime]) -> CallDict:
+    """Convert a datetime object to a dictionary of date and time."""
     if dt is None:
         return {}
 
@@ -228,34 +250,42 @@ def format_datetime(dt: Optional[datetime]) -> CallDict:
 
 
 def parse_messages(xml: ET.Element) -> CallDict:
-    # <div class="hChatLog hfeed">
-    #     <div class="message">
-    #         <abbr class="dt" title="2020-06-23T21:10:00.971-04:00">
-    #             Jun 23, 2020, 9:10:00 PM Eastern Time
-    #         </abbr>
-    #         <!-- ... -->
-    #     </div>
-    #     <!-- ... -->
-    # </div>
+    """
+    Parse message metadata from HTML.
+
+    <div class="hChatLog hfeed">
+        <div class="message">
+            <abbr class="dt" title="2020-06-23T21:10:00.971-04:00">
+                Jun 23, 2020, 9:10:00 PM Eastern Time
+            </abbr>
+            <!-- ... -->
+        </div>
+        <!-- ... -->
+    </div>
+    """
     messages = xml.findall(".//*[@class='message']")
     if not messages:
         return {}
 
-    first_dt = get_dt(messages[0])
-    last_dt = get_dt(messages[-1])
+    first_datetime = parse_message_datetime(messages[0])
+    last_datetime = parse_message_datetime(messages[-1])
 
-    if not (first_dt and last_dt):
+    if not (first_datetime and last_datetime):
         return {}
 
     return {
-        **format_datetime(first_dt),
-        "message_days": (last_dt - first_dt).days,
+        **format_datetime(first_datetime),
+        "message_days": (last_datetime - first_datetime).days,
         "message_count": len(messages),
     }
 
 
-def get_dt(xml: ET.Element) -> Optional[datetime]:
-    # <abbr class="dt" title="2020-06-23T21:10:00.971-04:00">
+def parse_message_datetime(xml: ET.Element) -> Optional[datetime]:
+    """
+    Parse a message's timestamp from HTML.
+
+    <abbr class="dt" title="2020-06-23T21:10:00.971-04:00">
+    """
     element = xml.find(".//*[@class='dt']")
     if element is None:
         return None
@@ -268,6 +298,7 @@ def write_csv(
     fieldnames: List[str],
     csvfile: IO[str],
 ) -> None:
+    """Write call history metadata as comma-separated values."""
     writer = csv.DictWriter(
         csvfile,
         fieldnames=fieldnames,

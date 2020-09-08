@@ -1,4 +1,5 @@
 # type: ignore
+"""Run code formatters, checkers, and other tasks."""
 import os
 
 from invoke import task
