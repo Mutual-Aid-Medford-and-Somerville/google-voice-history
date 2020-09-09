@@ -31,3 +31,8 @@ jobs:
     - name: Test
       run: |
         pytest
+    - name: Save coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: coverage-${{ matrix.python-version }}-${{ matrix.platform }}
+        path: htmlcov
