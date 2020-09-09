@@ -1,5 +1,5 @@
 # type: ignore
-"""Tests for google_voice_history.py."""
+"""Tests of running `python google_voice_history.py`."""
 import pathlib
 import re
 import subprocess
