@@ -1,9 +1,0 @@
--e .
-black
-flake8
-flake8-docstrings
-invoke
-isort
-mypy
-pep8-naming
-pytest

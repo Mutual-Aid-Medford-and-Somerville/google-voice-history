@@ -54,7 +54,7 @@ Set up your development environment:
     ```
     $ python -m pip install -U setuptools pip wheel
 
-    $ python -m pip install -r requirements.txt
+    $ python -m pip install -e .[dev]
     ```
 
     This will install:
