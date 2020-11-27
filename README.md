@@ -4,7 +4,7 @@ Generate a CSV of call and message history from a Google Voice Takeout.
 
 ## Installing
 
-Download the latest version of [`src/google_voice_history.py`](./src/google_voice_history.py). Currently, the script only requires [Python 3.7](https://www.python.org/downloads/) or newer, so no further installation is required.
+Download the latest version of [`src/google_voice_history.py`](https://raw.githubusercontent.com/Mutual-Aid-Medford-and-Somerville/google-voice-history/main/src/google_voice_history.py). Currently, the script only requires [Python 3.7](https://www.python.org/downloads/) or newer, so no further installation is required.
 
 ## Exporting Google Voice history
 
@@ -25,7 +25,7 @@ The downloaded `.zip` file contains call history and text messages as `.html` fi
 
 ## Generating a CSV
 
-Run the script with the path to downloaded `.zip` file, saving the output to a `.csv` file:
+Run the script with the path to the downloaded `.zip` file, saving the output to a `.csv` file:
 
 ```
 $ python google_voice_history.py takeout.zip > google_voice_history.csv
